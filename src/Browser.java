@@ -1,4 +1,7 @@
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
+import javafx.concurrent.Worker;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.Scene;
 import javafx.scene.web.WebEngine;
@@ -15,43 +18,97 @@ import javax.swing.*;
 
 public class Browser {
     private Thread showPageThread = new Thread();
-    private JButton backButton = new JButton("<"), forwardButton = new JButton(">");
+    private JButton backBtn = new JButton("<");
+    private JButton forwardBtn = new JButton(">");
     private JTextField URLTextField = new JTextField(100);
-//    private JEditorPane displayEditorPane = new JEditorPane();
     private ArrayList<String> pageList = new ArrayList<>();
-    private static JFrame jFrame;
+
     private static JFXPanel jfxPanel;
     private static WebView webView;
     private static WebEngine webEngine;
     private static WebHistory webHistory;
+    private static ArrayList<String> filteredWebsites = new ArrayList<>();
 
     public Browser() {
+        addToBlackList("stackoverflow.com");
+        // @Doggo fullscreen 'cause my recorder isn't working if not
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         int screenWidth = (int) screenSize.getWidth();
         int screenHeight = (int) screenSize.getHeight();
 
-        jFrame = new JFrame("Doggo's Browser");
+        JFrame jFrame = new JFrame("Doggo's Browser");
         jfxPanel = new JFXPanel();
+
+        jFrame.setSize(screenWidth, screenHeight);
+        jFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        jFrame.getContentPane().setLayout(new BorderLayout());
+        jFrame.getContentPane().add(buildMenuPanel(), BorderLayout.NORTH);
+        jFrame.getContentPane().add(jfxPanel, BorderLayout.CENTER);
+
+        initializeWebView();
+
+        jFrame.setLocationRelativeTo(null);
+        jFrame.setVisible(true);
+    }
+
+    private void initializeWebView() {
+        Platform.runLater(() -> {
+            webView = new WebView();
+
+            webEngine = webView.getEngine();
+            webEngine.setJavaScriptEnabled(true);
+
+            // set manually 'cause the default is outdated
+            webEngine.setUserAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:54.0) Gecko/20100101 Firefox/73.0");
+//            System.out.println("User Agent: " + webEngine.getUserAgent());
+
+            webEngine.locationProperty().addListener((observable, oldLoc, newLoc) -> {
+                if (isBlackListed(newLoc)) {
+                    System.out.println("[WebEngine] Worker blocked the website!");
+                    JOptionPane.showMessageDialog(null, "You can't view the website kid!", "Blacklisted", JOptionPane.ERROR_MESSAGE);
+                    Platform.runLater(() -> webEngine.load(oldLoc));
+                }
+            });
+            webEngine.getLoadWorker().stateProperty().addListener((observable, oldState, newState) -> {
+                String loc = webEngine.getLocation();
+
+                System.out.println("[WebEngine] oldState: " + oldState);
+                System.out.println("[WebEngine] newState: " + newState);
+                System.out.println("[WebEngine] location: " + loc);
+
+                URLTextField.setText(loc); // update URL in text field
+
+                if (newState == Worker.State.SUCCEEDED)
+                    updateButtons();
+
+                if (newState == Worker.State.FAILED)
+                    JOptionPane.showMessageDialog(null, "Failed to load Webpage!", "Opps", JOptionPane.ERROR_MESSAGE);
+            });
+
+            webHistory = webEngine.getHistory();
+            jfxPanel.setScene(new Scene(webView));
+        });
+    }
+
+    private JPanel buildMenuPanel() {
         JPanel menuJPanel = new JPanel();
 
         menuJPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
         menuJPanel.setBackground(Color.getHSBColor(0.5f, 0.5f, 0.7f));
 
-        jFrame.setSize(screenWidth, screenHeight);
-        jFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        backBtn.addActionListener(e -> onBtnBackClick());
+        backBtn.setEnabled(false);
+        menuJPanel.add(backBtn);
 
-        backButton.addActionListener(e -> actionBack());
-        backButton.setEnabled(true);
-        menuJPanel.add(backButton);
-
-        forwardButton.addActionListener(e -> actionForward());
-        forwardButton.setEnabled(true);
-        menuJPanel.add(forwardButton);
+        forwardBtn.addActionListener(e -> onBtnForwardClick());
+        forwardBtn.setEnabled(false);
+        menuJPanel.add(forwardBtn);
 
         URLTextField.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    actionGo();
+                    onBtnGoClick();
                 }
             }
         });
@@ -59,86 +116,90 @@ public class Browser {
         menuJPanel.add(URLTextField);
 
         JButton goBtn = new JButton("GO");
-        goBtn.addActionListener(e -> actionGo());
+        goBtn.addActionListener(e -> onBtnGoClick());
         menuJPanel.add(goBtn);
 
         JButton historyBtn = new JButton("History");
-        historyBtn.addActionListener(e -> {});
+        historyBtn.addActionListener(e -> onBtnHistoryClick());
         menuJPanel.add(historyBtn);
 
         JButton blockedBtn = new JButton("Filtered Websites");
-        blockedBtn.addActionListener(e -> {});
+        blockedBtn.addActionListener(e -> onBtnBlockedClick());
         menuJPanel.add(blockedBtn);
-        /*displayEditorPane.setContentType("text/html");
-        displayEditorPane.setEditable(false);
-        displayEditorPane.addHyperlinkListener(jFrame);*/
 
-        jFrame.getContentPane().setLayout(new BorderLayout());
-        jFrame.getContentPane().add(menuJPanel, BorderLayout.NORTH);
-        jFrame.getContentPane().add(jfxPanel, BorderLayout.CENTER);
-
-        Platform.runLater(() -> {
-            webView = new WebView();
-            webEngine = webView.getEngine();
-            webHistory = webEngine.getHistory();
-            jfxPanel.setScene(new Scene(webView));
-        });
-
-        jFrame.setLocationRelativeTo(null);
-        jFrame.setVisible(true);
+        return menuJPanel;
     }
 
-    private void actionBack() {
+    private void onBtnHistoryClick() {
         Platform.runLater(() -> {
-            try {
-                webHistory.go(-1);
-            } catch (IndexOutOfBoundsException e) {
-                System.out.println("No more backward history found.");
-            } catch (Exception e) {
-                System.out.println("error in actionBack: " + e.getMessage());
-            }
+            System.out.println("Histories: ");
+            for (WebHistory.Entry entry : webHistory.getEntries())
+                System.out.println(entry);
         });
-
-//        URL currentUrl = displayEditorPane.getPage();
-        /*String currentUrl = "google.com";
-        int pageIndex = pageList.indexOf(currentUrl);
-        try {
-            showPage(new URL((String) pageList.get(pageIndex - 1)), false);
-        } catch (Exception e) {
-        }*/
     }
 
-    private void actionForward() {
-        Platform.runLater(() -> {
-            try {
-                webHistory.go(1);
-            } catch (IndexOutOfBoundsException e) {
-                System.out.println("No more forward history found.");
-            } catch (Exception e) {
-                System.out.println("error in actionForward: " + e.getMessage());
-            }
-        });
-//        URL currentUrl = displayEditorPane.getPage();
-        /*String currentUrl = "google.com";
-        int pageIndex = pageList.indexOf(currentUrl.toString());
-        try {
-            showPage(new URL((String) pageList.get(pageIndex + 1)), false);
-        } catch (Exception e) {
-        }*/
+    private void onBtnBlockedClick() {
+
     }
 
-    private void actionGo() {
-        if (!URLTextField.getText().toLowerCase().startsWith("https://")) {
-            System.out.println(URLTextField.getText());
-            URLTextField.setText("https://" + URLTextField.getText());
+    private void onBtnBackClick() {
+        updateButtons();
+        // performance wise
+        if (webHistory.getCurrentIndex() > 0)
+            Platform.runLater(() -> {
+                try {
+                    webHistory.go(-1);
+                } catch (IndexOutOfBoundsException e) {
+                    System.out.println("No more backward history found.");
+                } catch (Exception e) {
+                    System.out.println("error in actionBack: " + e.getMessage());
+                }
+            });
+    }
+
+    private void onBtnForwardClick() {
+        updateButtons();
+        // performance wise
+        if (webHistory.getCurrentIndex() < webHistory.getEntries().size())
+            Platform.runLater(() -> {
+                try {
+                    webHistory.go(1);
+                } catch (IndexOutOfBoundsException e) {
+                    System.out.println("No more forward history found.");
+                } catch (Exception e) {
+                    System.out.println("error in actionForward: " + e.getMessage());
+                }
+            });
+    }
+
+    private void onBtnGoClick() {
+        String currentUrl = URLTextField.getText();
+        if (isBlackListed(currentUrl)) {
+            JOptionPane.showMessageDialog(null, "You can't view the website kid!", "Blacklisted", JOptionPane.ERROR_MESSAGE);
+            return;
         }
-        URL verifiedUrl = verifyUrl(URLTextField.getText());
+
+        updateButtons();
+
+        if (currentUrl.contains(".")) {
+            System.out.println("URL contains \".\"");
+            if (!currentUrl.toLowerCase().startsWith("https://")) {
+                System.out.println("Adding https:// to " + currentUrl);
+                URLTextField.setText("https://" + currentUrl);
+                currentUrl = "https://" + currentUrl;
+            }
+
+        }
+
+        URL verifiedUrl = verifyURL(currentUrl);
+
+        System.out.println("VERIFIED URL: " + verifiedUrl);
         if (verifiedUrl != null) {
 
             if (showPageThread.isAlive())
                 showPageThread.interrupt();
 
-            showPageThread = new Thread(() -> showPage(verifiedUrl, true));
+            showPageThread = new Thread(() -> showPage(verifiedUrl));
 
             showPageThread.start();
         } else {
@@ -146,13 +207,24 @@ public class Browser {
         }
     }
 
-    private URL verifyUrl(String url) {
-        if (!url.toLowerCase().startsWith("https://"))
+    private URL verifyURL(String url) {
+        System.out.println("Verifying Url: " + url);
+        if (!url.toLowerCase().startsWith("https://") && URLTextField.getText().contains("."))
             return null;
 
         URL verifiedUrl = null;
+
         try {
-            verifiedUrl = new URL(url);
+            // do a google search if "." is not found
+            if (!URLTextField.getText().contains(".")) {
+                System.out.println("Doing google search instead");
+                verifiedUrl = new URL(("https://www.google.com/search?q=" + URLTextField.getText()));
+            } else {
+                // go to website
+                verifiedUrl = new URL(url);
+            }
+
+
         } catch (Exception e) {
             return null;
         }
@@ -160,50 +232,56 @@ public class Browser {
         return verifiedUrl;
     }
 
-    private void showPage(URL pageUrl, boolean addToList) {
+    private void showPage(URL pageUrl) {
         System.out.println("showing page: " + pageUrl);
-        try {
-            String currentUrl = "google.com";
-//            URL currentUrl = displayEditorPane.getPage();
-//            displayEditorPane.setPage(pageUrl);
-//            URL newUrl = displayEditorPane.getPage();
-            Platform.runLater(() -> {
-                webView.getEngine().load(pageUrl.toString());
-            });
+        Platform.runLater(() -> {
+            webView.getEngine().load(pageUrl.toString());
+        });
 
-            if (addToList) {
-                int listSize = pageList.size();
-                if (listSize <= 0) {
-                    return;
-                }
-                int pageIndex = pageList.indexOf(currentUrl.toString());
-                if (pageIndex >= listSize - 1) {
-                    return;
-                }
-                for (int i = listSize - 1; i > pageIndex; i--) {
-                    pageList.remove(i);
-                }
-                pageList.add(currentUrl);
-            }
-            URLTextField.setText(currentUrl);
-            updateButtons();
-        } catch (Exception e) {
-            System.out.println("Unable to load page");
-        }
+        URLTextField.setText(pageUrl.toString());
+        updateButtons(); // @TODO @DOGGO could cause problems if web page dont load
     }
 
     private void updateButtons() {
-        /*if (pageList.size() < 2) {
-            backButton.setEnabled(false);
-            forwardButton.setEnabled(false);
-        } else {
-            String currentUrl = "gggg";
-            int pageIndex = pageList.indexOf(currentUrl.toString());
-            backButton.setEnabled(pageIndex > 0);
-            forwardButton.setEnabled(pageIndex < (pageList.size() - 1));
-        }*/
+        new Thread(() -> {
+            System.out.println("Updating Buttons: " + webHistory.getCurrentIndex());
+
+            // update back button
+            if (webHistory.getCurrentIndex() > 0) {
+                System.out.println("back button enabled");
+                backBtn.setEnabled(true);
+            } else {
+                System.out.println("back button disabled");
+                backBtn.setEnabled(false);
+            }
+
+            // update forward button
+            if (webHistory.getCurrentIndex() < webHistory.getEntries().size() - 1) {
+                System.out.println("forward button enabled");
+                forwardBtn.setEnabled(true);
+            } else {
+                System.out.println("forward button enabled");
+                forwardBtn.setEnabled(false);
+            }
+        }).start();
     }
 
+    private void addToBlackList(String url) {
+        filteredWebsites.add(url.toLowerCase());
+    }
+
+    // still needs improvement
+    // for simplicity black if the url contains the word
+    private boolean isBlackListed(String urlToFind) {
+        System.out.println("Checking " + urlToFind + " in blacklists.");
+        for (String url : filteredWebsites)
+            if (urlToFind.toLowerCase().matches( ("(.*)" + url + "(.*)") )) {
+                System.out.println("URL: " + urlToFind + " have been blocked");
+                return true;
+            }
+
+        return false;
+    }
     public static void main(String[] args) {
         new Browser();
     }
