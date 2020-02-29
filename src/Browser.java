@@ -1,6 +1,4 @@
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Worker;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.Scene;
@@ -11,17 +9,20 @@ import javafx.scene.web.WebView;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 public class Browser {
     private Thread showPageThread = new Thread();
     private JButton backBtn = new JButton("<");
     private JButton forwardBtn = new JButton(">");
     private JTextField URLTextField = new JTextField(100);
-    private ArrayList<String> pageList = new ArrayList<>();
 
     private static JFXPanel jfxPanel;
     private static WebView webView;
@@ -36,7 +37,7 @@ public class Browser {
         int screenWidth = (int) screenSize.getWidth();
         int screenHeight = (int) screenSize.getHeight();
 
-        JFrame jFrame = new JFrame("Doggo's Browser");
+        JFrame jFrame = new JFrame("Doggo's Browser (Alpha Version 0.0.3)");
         jfxPanel = new JFXPanel();
 
         jFrame.setSize(screenWidth, screenHeight);
@@ -65,11 +66,27 @@ public class Browser {
 
             webEngine.locationProperty().addListener((observable, oldLoc, newLoc) -> {
                 if (isBlackListed(newLoc)) {
+                    String urlOld = oldLoc;
+                    String urlNew = newLoc;
                     System.out.println("[WebEngine] Worker blocked the website!");
-                    JOptionPane.showMessageDialog(null, "You can't view the website kid!", "Blacklisted", JOptionPane.ERROR_MESSAGE);
+
+                    try {
+                        urlOld = new URL(oldLoc).getHost();
+                        urlNew = new URL(newLoc).getHost();
+                    } catch (MalformedURLException e) {
+                        e.printStackTrace();
+                        JOptionPane.showMessageDialog(null, "Cant convert the url to URL data type");
+                    }
+
+                    System.out.println("Avoid infinite dialog loop by comparing " + urlOld + " : " + urlNew);
+                    if (urlOld.equals(urlNew))
+                        return;
+
+                    Notification.toastError("Blacklisted", "You can't view the "+ newLoc +" website kid!");
                     Platform.runLater(() -> webEngine.load(oldLoc));
                 }
             });
+
             webEngine.getLoadWorker().stateProperty().addListener((observable, oldState, newState) -> {
                 String loc = webEngine.getLocation();
 
@@ -83,7 +100,7 @@ public class Browser {
                     updateButtons();
 
                 if (newState == Worker.State.FAILED)
-                    JOptionPane.showMessageDialog(null, "Failed to load Webpage!", "Opps", JOptionPane.ERROR_MESSAGE);
+                    Notification.toastError("Opps", "Failed to load Webpage!");
             });
 
             webHistory = webEngine.getHistory();
@@ -131,6 +148,7 @@ public class Browser {
     }
 
     private void onBtnHistoryClick() {
+        Notification.toastMessage("Check the console!");
         Platform.runLater(() -> {
             System.out.println("Histories: ");
             for (WebHistory.Entry entry : webHistory.getEntries())
@@ -138,8 +156,39 @@ public class Browser {
         });
     }
 
+    // filtered website button
     private void onBtnBlockedClick() {
+        // @TODO @DOGGO maybe we need to make this static, what if we open too many of them?
+        JFrame jFrame = new JFrame("blocked websites");
 
+        JTextArea jTextArea = new JTextArea(20, 20);
+
+        jTextArea.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                updateBlackList(jTextArea);
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                updateBlackList(jTextArea);
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                updateBlackList(jTextArea);
+            }
+        });
+        JScrollPane jScrollPane = new JScrollPane(jTextArea);
+
+        for (String url : filteredWebsites)
+            jTextArea.append(url + "\n");
+
+        jFrame.add(jScrollPane);
+        jFrame.setSize(300, 400);
+        jFrame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        jFrame.setLocationRelativeTo(null);
+        jFrame.setVisible(true);
     }
 
     private void onBtnBackClick() {
@@ -175,7 +224,7 @@ public class Browser {
     private void onBtnGoClick() {
         String currentUrl = URLTextField.getText();
         if (isBlackListed(currentUrl)) {
-            JOptionPane.showMessageDialog(null, "You can't view the website kid!", "Blacklisted", JOptionPane.ERROR_MESSAGE);
+            Notification.toastError("Blacklisted", "You can't view the " + currentUrl + " website kid!");
             return;
         }
 
@@ -270,18 +319,43 @@ public class Browser {
         filteredWebsites.add(url.toLowerCase());
     }
 
+    private void updateBlackList(JTextArea jTextArea) {
+        filteredWebsites = new ArrayList<String>();
+        String text = jTextArea.getText();
+        String[] words=text.split("\\n");
+
+        filteredWebsites.addAll(Arrays.asList(words));
+    }
     // still needs improvement
     // for simplicity black if the url contains the word
     private boolean isBlackListed(String urlToFind) {
+        // removes https, http, ://, www.
+        urlToFind = sanitizeUrl(urlToFind);
         System.out.println("Checking " + urlToFind + " in blacklists.");
+
         for (String url : filteredWebsites)
-            if (urlToFind.toLowerCase().matches( ("(.*)" + url + "(.*)") )) {
-                System.out.println("URL: " + urlToFind + " have been blocked");
-                return true;
-            }
+            // matches google.com, quora.com
+            // doesn't match www.google.com, https://www.google.com, http://google.com
+            if (url.length() > 0)
+                if (urlToFind.toLowerCase().matches( (url + "(.*)") )) {
+                    System.out.println("URL: " + urlToFind + " have been blocked ||  matched: " + url);
+                    return true;
+                }
 
         return false;
     }
+
+    private String sanitizeUrl(String url) {
+        String u = url;
+        u = u.trim();
+        u = u.replace("https", "");
+        u = u.replace("http", "");
+        u = u.replace("://", "");
+        u = u.replace("www.", "");
+
+        return u;
+    }
+
     public static void main(String[] args) {
         new Browser();
     }

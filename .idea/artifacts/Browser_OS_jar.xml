@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Browser_OS:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/Browser_OS_jar</output-path>
+    <root id="archive" name="Browser_OS.jar">
+      <element id="module-output" name="Browser_OS" />
+    </root>
+  </artifact>
+</component>
