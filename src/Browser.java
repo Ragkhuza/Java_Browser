@@ -36,7 +36,7 @@ final public class Browser {
         int screenWidth = (int) screenSize.getWidth();
         int screenHeight = (int) screenSize.getHeight();
 
-        JFrame jFrame = new JFrame("Doggo's Browser (Alpha Version 0.0.3)");
+        JFrame jFrame = new JFrame("Browser (0.9.0)");
         jfxPanel = new JFXPanel();
 
         jFrame.setSize(screenWidth, screenHeight);
