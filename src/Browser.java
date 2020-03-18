@@ -147,11 +147,9 @@ final public class Browser {
     }
 
     private void onBtnHistoryClick() {
-        Notification.toastMessage("Check the console!");
+//        Notification.toastMessage("Check the console!");
         Platform.runLater(() -> {
-            System.out.println("Histories: ");
-            for (WebHistory.Entry entry : webHistory.getEntries())
-                System.out.println(entry);
+            new BrowserHistoryWindow(webHistory.getEntries());
         });
     }
 

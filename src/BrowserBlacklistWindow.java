@@ -58,7 +58,7 @@ public class BrowserBlacklistWindow {
         jFrame.pack();
 
         jFrame.setResizable(false);
-        jFrame.setSize(600, jFrame.getHeight() + (blockListSize * 20));
+
         jFrame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         jFrame.setLocationRelativeTo(null);
         jFrame.setVisible(true);
