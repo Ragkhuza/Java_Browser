@@ -10,7 +10,10 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import javax.swing.*;
 
 final public class Browser {
@@ -26,7 +29,7 @@ final public class Browser {
     public static ArrayList<String> filteredWebsites = new ArrayList<>();
 
     public Browser() {
-        new BrowserBlacklistWindow(filteredWebsites).addToBlackList("stackoverflow.com");
+        new BrowserBlacklistWindow(filteredWebsites).addToBlackList("stackoverflow.com  ` 1584532553619 ` 1584532553623");
 //        BrowserBlacklistWindow.addToBlackList("stackoverflow.com");
         // @Doggo fullscreen 'cause my recorder isn't working if not
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
@@ -263,14 +266,50 @@ final public class Browser {
         urlToFind = UrlHelper.sanitizeUrl(urlToFind);
         System.out.println("Checking " + urlToFind + " in blacklists.");
 
-        for (String url : filteredWebsites)
-            // matches google.com, quora.com
-            // doesn't match www.google.com, https://www.google.com, http://google.com
-            if (url.length() > 0)
-                if (urlToFind.toLowerCase().matches( (url + "(.*)") )) {
-                    System.out.println("URL: " + urlToFind + " have been blocked ||  matched: " + url);
-                    return true;
+        for (String urlWithTime : filteredWebsites) {
+            System.out.println("Unparsed URL: " + urlWithTime);
+            String[] splittedUrl = urlWithTime.split("`");
+            String url = splittedUrl[0].trim();
+
+            // compare date
+            DateFormat formatter = new SimpleDateFormat("MM/dd/yy");
+
+            Date timeFrom = null;
+            Date timeTo = null;
+
+            try {
+                System.out.println("Parsing: " + splittedUrl[1].trim());
+                System.out.println("Parsing: " + splittedUrl[2].trim());
+
+                timeFrom = new Date(Long.parseLong(splittedUrl[1].trim()));
+                timeTo = new Date(Long.parseLong(splittedUrl[2].trim()));
+
+
+                Date d = new Date();
+                Date dateToday = new Date(70,0,1, d.getHours(),d.getMinutes(),d.getSeconds());
+                System.out.println("Date From:  " + timeFrom.toString());
+                System.out.println("Date Today: " + dateToday.toString());
+                System.out.println("Date To:    " + timeTo. toString());
+
+                System.out.println("Date after : " + dateToday.after(timeFrom));
+                System.out.println("Date before: " + dateToday.before(timeTo));
+
+                if(dateToday.after(timeFrom) && dateToday.before(timeTo)) {
+                    System.out.println("THE WEBSITE IS BETWEEN THE BLOCKING DATES");
+                    // matches google.com, quora.com
+                    // doesn't match www.google.com, https://www.google.com, http://google.com
+                    if (url.length() > 0)
+                        if (urlToFind.toLowerCase().matches( (url + "(.*)") )) {
+                            System.out.println("URL: " + urlToFind + " have been blocked ||  matched: " + url);
+                            return true;
+                        }
                 }
+
+            } catch (Exception e) {
+                System.out.println("[Browser.java] Error parsing date");
+                e.printStackTrace();
+            }
+        }
 
         return false;
     }

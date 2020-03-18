@@ -30,7 +30,6 @@ final public class UrlHelper {
                 verifiedUrl = new URL(url);
             }
 
-
         } catch (Exception e) {
             return null;
         }

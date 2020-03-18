@@ -1,16 +1,11 @@
 import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import java.awt.Component;
 import java.awt.GridLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 
 public class BrowserBlacklistWindow {
-    final static String timeFormat = "HH:mm";
+    final static String timeFormat = "HH:mm:ss";
 
     ArrayList<String> fw;
 
@@ -21,31 +16,6 @@ public class BrowserBlacklistWindow {
     public void show() { 
         // @TODO @DOGGO maybe we need to make this static, what if we open too many of them?
         JFrame jFrame = new JFrame("blocked websites");
-
-        JTextArea jTextArea = new JTextArea(20, 20);
-
-        jTextArea.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                updateBlackList(jTextArea);
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                updateBlackList(jTextArea);
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                updateBlackList(jTextArea);
-            }
-        });
-        JScrollPane jScrollPane = new JScrollPane(jTextArea);
-
-        /*for (String url : fw)
-            jTextArea.append(url + "\n");*/
-
-//        jFrame.add(jScrollPane);
 
         JPanel jPanel = new JPanel();
 
@@ -61,20 +31,22 @@ public class BrowserBlacklistWindow {
         addLabels(jPanel);
 
         for (int i = 0; i < blockListSize; i++) {
+            String[] splittedUrl = fw.get(i).split("`");
+
             // Website url text field
-            webSiteField[i] = new JTextField(fw.get(i));
+            webSiteField[i] = new JTextField(splittedUrl[0]);
 
             // TIME FROM
             timeFrom[i] = new JSpinner( new SpinnerDateModel() );
             JSpinner.DateEditor timeEditor = new JSpinner.DateEditor(timeFrom[i], timeFormat);
             timeFrom[i].setEditor(timeEditor);
-            timeFrom[i].setValue(new Date()); // will only show the current time
+            timeFrom[i].setValue(new Date(0)); // start from 1970 since we don't care about the day
 
             // TIME TO
             timeTo[i] = new JSpinner( new SpinnerDateModel() );
             JSpinner.DateEditor timeEditor2 = new JSpinner.DateEditor(timeTo[i], timeFormat);
             timeTo[i].setEditor(timeEditor2);
-            timeTo[i].setValue(new Date()); // will only show the current time
+            timeTo[i].setValue(new Date(0)); // start from 1970 since we don't care about the day
 
             jPanel.add(webSiteField[i]);
             jPanel.add(timeFrom[i]);
@@ -101,17 +73,16 @@ public class BrowserBlacklistWindow {
             JSpinner ts = new JSpinner( new SpinnerDateModel() );
             JSpinner.DateEditor timeEditor = new JSpinner.DateEditor(ts, timeFormat);
             ts.setEditor(timeEditor);
-            ts.setValue(new Date()); // will only show the current time
+            ts.setValue(new Date(0)); // start from 1970 since we don't care about the day
 
             JSpinner ts2 = new JSpinner( new SpinnerDateModel() );
             JSpinner.DateEditor timeEditor2 = new JSpinner.DateEditor(ts2, timeFormat);
             ts2.setEditor(timeEditor2);
-            ts2.setValue(new Date()); // will only show the current time
+            ts2.setValue(new Date(0)); // start from 1970 since we don't care about the day
 
-            jpanel.add(new JTextField("wasd"));
+            jpanel.add(new JTextField(""));
             jpanel.add(ts);
             jpanel.add(ts2);
-
 
             gl.setRows(gl.getRows() + 1);
             jpanel.revalidate();
@@ -131,6 +102,8 @@ public class BrowserBlacklistWindow {
         JOptionPane.showMessageDialog(null, "Applied");
         Component[] components = jpanel.getComponents();
 
+        Browser.filteredWebsites = new ArrayList<String>();
+
         for (int i = 0; i < components.length; i++) {
             if (components[i] instanceof  JTextField) {
                 JTextField c = (JTextField) components[i];
@@ -139,10 +112,12 @@ public class BrowserBlacklistWindow {
 
                 Date dfr = (Date) timeFrom.getValue();
                 Date dto = (Date) timeTo.getValue();
-                System.out.println(c.getText() + " FROM: " + dfr.toString() + " TO: " + dto.toString());
+
+                String res = c.getText() + " ` " + dfr.getTime() + " ` " + dto.getTime();
+                System.out.println("Result: " + res);
+                updateBlackList(res);
             }
         }
-
     }
 
     private void onBtnCancelClick(JFrame jframe) {
@@ -156,12 +131,16 @@ public class BrowserBlacklistWindow {
         jPanel.add(new JLabel("TO"));
     }
 
-    private void updateBlackList(JTextArea jTextArea) {
+    /*private void updateBlackList(JTextArea jTextArea) {
         Browser.filteredWebsites = new ArrayList<String>();
         String text = jTextArea.getText();
         String[] words=text.split("\\n");
 
         Browser.filteredWebsites.addAll(Arrays.asList(words));
+    }*/
+
+    private void updateBlackList(String blacklistWithTime) {
+        Browser.filteredWebsites.add(blacklistWithTime);
     }
 
     public void addToBlackList(String url) {
