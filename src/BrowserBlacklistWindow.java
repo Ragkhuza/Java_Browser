@@ -107,15 +107,17 @@ public class BrowserBlacklistWindow {
         for (int i = 0; i < components.length; i++) {
             if (components[i] instanceof  JTextField) {
                 JTextField c = (JTextField) components[i];
-                JSpinner timeFrom = (JSpinner) components[i+1];
-                JSpinner timeTo = (JSpinner) components[i+2];
+                if (!c.getText().trim().isEmpty()) { // check if not empty
+                    JSpinner timeFrom = (JSpinner) components[i+1];
+                    JSpinner timeTo = (JSpinner) components[i+2];
 
-                Date dfr = (Date) timeFrom.getValue();
-                Date dto = (Date) timeTo.getValue();
+                    Date dfr = (Date) timeFrom.getValue();
+                    Date dto = (Date) timeTo.getValue();
 
-                String res = c.getText() + " ` " + dfr.getTime() + " ` " + dto.getTime();
-                System.out.println("Result: " + res);
-                updateBlackList(res);
+                    String res = c.getText() + " ` " + dfr.getTime() + " ` " + dto.getTime();
+                    System.out.println("Result: " + res);
+                    updateBlackList(res);
+                }
             }
         }
     }
