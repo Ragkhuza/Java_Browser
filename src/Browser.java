@@ -5,33 +5,29 @@ import javafx.scene.Scene;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebHistory;
 import javafx.scene.web.WebView;
-
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
-
 import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 
-public class Browser {
+final public class Browser {
     private Thread showPageThread = new Thread();
     private JButton backBtn = new JButton("<");
     private JButton forwardBtn = new JButton(">");
     private JTextField URLTextField = new JTextField(100);
+    private JFXPanel jfxPanel;
+    private WebView webView;
+    private WebEngine webEngine;
 
-    private static JFXPanel jfxPanel;
-    private static WebView webView;
-    private static WebEngine webEngine;
     private static WebHistory webHistory;
-    private static ArrayList<String> filteredWebsites = new ArrayList<>();
+    public static ArrayList<String> filteredWebsites = new ArrayList<>();
 
     public Browser() {
-        addToBlackList("stackoverflow.com");
+        new BrowserBlacklistWindow(filteredWebsites).addToBlackList("stackoverflow.com");
+//        BrowserBlacklistWindow.addToBlackList("stackoverflow.com");
         // @Doggo fullscreen 'cause my recorder isn't working if not
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         int screenWidth = (int) screenSize.getWidth();
@@ -140,7 +136,7 @@ public class Browser {
         historyBtn.addActionListener(e -> onBtnHistoryClick());
         menuJPanel.add(historyBtn);
 
-        JButton blockedBtn = new JButton("Filtered Websites");
+        JButton blockedBtn = new JButton("Block Websites");
         blockedBtn.addActionListener(e -> onBtnBlockedClick());
         menuJPanel.add(blockedBtn);
 
@@ -158,37 +154,8 @@ public class Browser {
 
     // filtered website button
     private void onBtnBlockedClick() {
-        // @TODO @DOGGO maybe we need to make this static, what if we open too many of them?
-        JFrame jFrame = new JFrame("blocked websites");
-
-        JTextArea jTextArea = new JTextArea(20, 20);
-
-        jTextArea.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                updateBlackList(jTextArea);
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                updateBlackList(jTextArea);
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                updateBlackList(jTextArea);
-            }
-        });
-        JScrollPane jScrollPane = new JScrollPane(jTextArea);
-
-        for (String url : filteredWebsites)
-            jTextArea.append(url + "\n");
-
-        jFrame.add(jScrollPane);
-        jFrame.setSize(300, 400);
-        jFrame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-        jFrame.setLocationRelativeTo(null);
-        jFrame.setVisible(true);
+        BrowserBlacklistWindow bbw = new BrowserBlacklistWindow(filteredWebsites);
+        bbw.show();
     }
 
     private void onBtnBackClick() {
@@ -237,10 +204,9 @@ public class Browser {
                 URLTextField.setText("https://" + currentUrl);
                 currentUrl = "https://" + currentUrl;
             }
-
         }
 
-        URL verifiedUrl = verifyURL(currentUrl);
+        URL verifiedUrl = UrlHelper.verifyURL(currentUrl, URLTextField);
 
         System.out.println("VERIFIED URL: " + verifiedUrl);
         if (verifiedUrl != null) {
@@ -254,31 +220,6 @@ public class Browser {
         } else {
             System.out.println("Invalid URL");
         }
-    }
-
-    private URL verifyURL(String url) {
-        System.out.println("Verifying Url: " + url);
-        if (!url.toLowerCase().startsWith("https://") && URLTextField.getText().contains("."))
-            return null;
-
-        URL verifiedUrl = null;
-
-        try {
-            // do a google search if "." is not found
-            if (!URLTextField.getText().contains(".")) {
-                System.out.println("Doing google search instead");
-                verifiedUrl = new URL(("https://www.google.com/search?q=" + URLTextField.getText()));
-            } else {
-                // go to website
-                verifiedUrl = new URL(url);
-            }
-
-
-        } catch (Exception e) {
-            return null;
-        }
-
-        return verifiedUrl;
     }
 
     private void showPage(URL pageUrl) {
@@ -315,22 +256,11 @@ public class Browser {
         }).start();
     }
 
-    private void addToBlackList(String url) {
-        filteredWebsites.add(url.toLowerCase());
-    }
-
-    private void updateBlackList(JTextArea jTextArea) {
-        filteredWebsites = new ArrayList<String>();
-        String text = jTextArea.getText();
-        String[] words=text.split("\\n");
-
-        filteredWebsites.addAll(Arrays.asList(words));
-    }
     // still needs improvement
     // for simplicity black if the url contains the word
     private boolean isBlackListed(String urlToFind) {
         // removes https, http, ://, www.
-        urlToFind = sanitizeUrl(urlToFind);
+        urlToFind = UrlHelper.sanitizeUrl(urlToFind);
         System.out.println("Checking " + urlToFind + " in blacklists.");
 
         for (String url : filteredWebsites)
@@ -345,21 +275,7 @@ public class Browser {
         return false;
     }
 
-    private String sanitizeUrl(String url) {
-        String u = url;
-        u = u.trim();
-        u = u.replace("https", "");
-        u = u.replace("http", "");
-        u = u.replace("://", "");
-        u = u.replace("www.", "");
-
-        return u;
-    }
-
     public static void main(String[] args) {
         new Browser();
     }
 }
-
-   
-    
