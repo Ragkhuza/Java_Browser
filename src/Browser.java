@@ -20,7 +20,7 @@ final public class Browser {
     private Thread showPageThread = new Thread();
     private JButton backBtn = new JButton("<");
     private JButton forwardBtn = new JButton(">");
-    private JTextField URLTextField = new JTextField(100);
+    private JTextField URLTextField = new JTextField(50);
     private JFXPanel jfxPanel;
     private WebView webView;
     private WebEngine webEngine;
